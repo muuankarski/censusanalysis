@@ -18,57 +18,15 @@ opts_chunk$set(echo=FALSE,eval=TRUE, cache=TRUE,message=FALSE,warning=FALSE,fig.
 
 ## Histogram
 
-```{rcenKarePersAge}
-raw <-  read.csv("data/DoBKarelia.csv", sep=";", skip=6)
-names(raw) <- c("measure","region","year","value")
 
-df <- raw
-n.row <-  nrow(df)
-df <- df[-n.row:-(n.row-2),]
-df$value <- as.numeric(df$value)
-df <- df[df$value > 0,]
-#df <- df[df$value != "Год рождения не указан",]
-
-df <- df[df$region != "Всего",]
-df$region <- factor(df$region)
-df$measure <- NULL
-
-df$year <- paste("x",df$year,sep="")
-
-
-library(reshape2)
-df.wide <- dcast(df, 
-                 region ~ year, 
-                 value.var = "value")
-
-df.wide <- df.wide[-102:-103]
-mat <- as.matrix(df.wide[,-1])
-matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
-
-dat <- as.data.frame(matnorm)
-df.w <- cbind(df.wide$region,dat)
-
-df.l <- melt(df.w, id.vars = "df.wide$region")
-library(stringr)
-df.l$variable <- as.character(df.l$variable)
-df.l$variable <- str_replace(df.l$variable, "x","")
-
-df.l$variable <- factor(df.l$variable)
-df.l$variable <- as.numeric(levels(df.l$variable))[df.l$variable]
-
-names(df.l) <- c("region","year","value")
-df.l$age <- 2002 - df.l$year
-
+```{rcenKarePersAgePlot1}
+dat <- read.csv("data/mod/ageKarelia.csv")
 library(RCurl)
 GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/karelia_key_rayon.csv")
 region_key_karelia <-  read.csv(text = GHurl)
-dat <- merge(df.l,region_key_karelia,
+dat <- merge(dat,region_key_karelia,
                         by="region")
 
-```
-
-
-```{rcenKarePersAgePlot1}
 library(ggplot2)
 ggplot(dat, aes(x=age,y=value)) +
   geom_bar(stat="identity",position="dodge") +
@@ -82,14 +40,15 @@ ggplot(dat, aes(x=age,y=value)) +
 library(rgdal)
 shapefile <- readOGR(dsn = "/home/aurelius/workspace/data/shapefiles/russia/gadm/RUS_adm_simple/", 
                layer = "RUS_adm2")
-
 shape_karelia <- shapefile[shapefile$NAME_1 == "Karelia", ]
 
-df.w$oldShare <- rowSums(df.w[2:41], na.rm=TRUE)
-dat <- df.w[,c("df.wide$region","oldShare")]
-names(dat) <- c("region","oldShare")
+library(plyr)
+datOld <- dat[dat$age >= 60,]
+cdata <- ddply(datOld, "region", summarise,
+               oldShare  = sum(value, na.rm=TRUE))
 
-df.map.karelia <- merge(dat,
+
+df.map.karelia <- merge(cdata,
                         region_key_karelia,
                         by="region")
 
@@ -116,13 +75,11 @@ ggplot(choro, aes(long,lat,group=group)) +
   labs(title="Share of people over 60 years (from census 2002)") +
   geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
             size=3, color="dim grey")
-
 ```
 
 ### Choropleth map on top of road map
 
 ```{rcenKarePersAgeMap2}
-
 library(ggmap)
 library(scales)
 

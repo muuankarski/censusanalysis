@@ -20,7 +20,7 @@ See the content of the this section in census data:
 - [In English](http://research.muuankarski.org/census/year2002/content/home_en.html)
 
 
-# Age of the local population
+# ???
 
 ## Histogram
 

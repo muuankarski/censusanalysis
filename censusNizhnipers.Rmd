@@ -13,73 +13,26 @@ knit2html('censusNizhnipers.Rmd',
 opts_chunk$set(echo=FALSE,eval=TRUE, cache=TRUE,message=FALSE,warning=FALSE,fig.width=14,fig.height=14)
 ```
 
-# Introduction (Лицо - Person)
-
-See the content of the this section in census data:
-
-- [In Russian](http://research.muuankarski.org/census/year2002/content/person_ru.html)
-- [In English](http://research.muuankarski.org/census/year2002/content/person_en.html)
-
-
 # Age of the local population
 
 ## Histogram
 
-```{rcenNizPersAge}
-raw <-  read.csv("data/DoBNizhni.csv", sep=";", skip=6)
-names(raw) <- c("region","measure","year","value")
 
-df <- raw
-n.row <-  nrow(df)
-df <- df[-n.row:-(n.row-2),]
-df$value <- as.numeric(df$value)
-df <- df[df$value > 0,]
-#df <- df[df$value != "Год рождения не указан",]
-
-df <- df[df$region != "Всего",]
-df$region <- factor(df$region)
-df$measure <- NULL
-
-df$year <- paste("x",df$year,sep="")
-
-
-library(reshape2)
-df.wide <- dcast(df, 
-                 region ~ year, 
-                 value.var = "value")
-
-df.wide <- df.wide[-102:-103]
-mat <- as.matrix(df.wide[,-1])
-matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
-
-dat <- as.data.frame(matnorm)
-df.w <- cbind(df.wide$region,dat)
-
-df.l <- melt(df.w, id.vars = "df.wide$region")
-library(stringr)
-df.l$variable <- as.character(df.l$variable)
-df.l$variable <- str_replace(df.l$variable, "x","")
-
-df.l$variable <- factor(df.l$variable)
-df.l$variable <- as.numeric(levels(df.l$variable))[df.l$variable]
-
-names(df.l) <- c("region","year","value")
-df.l$age <- 2002 - df.l$year
-
-library(RCurl)
-GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
-region_key_nizhni <-  read.csv(text = GHurl)
-dat <- merge(df.l,region_key_nizhni,
-                        by="region")
-
-```
 
 
 ```{rcenNizPersAgePlot1}
+dat <- read.csv("data/mod/ageNizhni.csv")
+library(RCurl)
+GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
+region_key_nizhni <-  read.csv(text = GHurl)
+dat <- merge(dat,region_key_nizhni,
+                        by="region")
+
 library(ggplot2)
 ggplot(dat, aes(x=age,y=value)) +
   geom_bar(stat="identity",position="dodge") +
-  facet_wrap(~NAME_2)
+  facet_wrap(~region, ncol=2) +
+   theme(axis.text.x = element_text(angle = 90))
 
 
 ```
@@ -89,19 +42,18 @@ ggplot(dat, aes(x=age,y=value)) +
 ```{rcenNizPersAgeMap1}
 library(rgdal)
 #load("RUS_adm2.RData")
-shapefile <- readOGR(dsn = "../../../data/shapefiles/russia/gadm/RUS_adm_simple/", 
+shapefile <- readOGR(dsn = "/home/aurelius/workspace/data/shapefiles/russia/gadm/RUS_adm_simple/", 
                layer = "RUS_adm2")
 
 shape_nizhni <- shapefile[shapefile$NAME_1 == "Nizhegorod", ]
 
-df.w$oldShare <- rowSums(df.w[2:41], na.rm=TRUE)
-dat <- df.w[,c("df.wide$region","oldShare")]
-names(dat) <- c("region","oldShare")
 
-library(RCurl)
-GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
-region_key_nizhni <-  read.csv(text = GHurl)
-df.map.nizhni <- merge(dat,
+library(plyr)
+datOld <- dat[dat$age >= 60,]
+cdata <- ddply(datOld, "region", summarise,
+               oldShare  = sum(value, na.rm=TRUE))
+
+df.map.nizhni <- merge(cdata,
                         region_key_nizhni,
                         by="region")
 
@@ -116,8 +68,6 @@ choro <- choro[order(choro$order), ]
 
 cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2.x, data=choro, mean)
 
-library(scales)
-
 ggplot(choro, aes(long,lat,group=group)) +
   geom_polygon(aes(fill = oldShare)) +
   geom_polygon(data = map.df, aes(long,lat), 
@@ -125,7 +75,7 @@ ggplot(choro, aes(long,lat,group=group)) +
                color = "white",
                size=0.1) + # white borders
   coord_map(project="orthographic")  +
-  scale_fill_gradient2(low=muted("blue"), high=muted("red"), midpoint=24) +
+  scale_fill_gradient(low="green", high="red") +
   labs(title="Share of people over 60 years (from census 2002)") +
   geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
 
@@ -142,7 +92,7 @@ data <- fortify(shape_nizhni)
 qmap("nizhni novgorod", zoom = 7, maptype="roadmap") +
  geom_polygon(aes(x = long, y = lat, group = group, fill = oldShare), data = choro,
  colour = "white", alpha = .6, size = .3) +
-  scale_fill_gradient2(low=muted("blue"), high=muted("red"), midpoint=24) +
+  scale_fill_gradient(low="green", high="red") +
   labs(title="Share of people over 60 years (from census 2002)")  +
   geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
 
