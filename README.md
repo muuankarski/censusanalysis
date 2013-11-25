@@ -6,10 +6,10 @@ See the visualisation in below
 
 ## Age and education
 
-- [Karelia](censusKareliaPers.html)
-- [Nizhni Novgorod Oblast](censusNizhniPers)
-- [Moscow Oblast](censusMoscowPers)
+- [Karelia](https://rawgithub.com/muuankarski/censusanalysis/master/censusKareliaPers.html)
+- [Nizhni Novgorod Oblast](https://rawgithub.com/muuankarski/censusanalysis/master/censusNizhnipers.html)
+- [Moscow Oblast](https://rawgithub.com/muuankarski/censusanalysis/master/censusMoscowObpers.html)
 
 ## House improvements
 
-- [Nizhni Novgorod Oblast](censusNizhnihome)
+- [Nizhni Novgorod Oblast](https://rawgithub.com/muuankarski/censusanalysis/master/censusNizhnihome.html)
