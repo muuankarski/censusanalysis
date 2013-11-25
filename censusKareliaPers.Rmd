@@ -1,0 +1,271 @@
+# Census 2002 & Karelia & Personal
+
+```{r, eval=FALSE, echo=FALSE}
+library(knitr)
+library(markdown)
+knit2html('censusKareliaPers.Rmd', 
+          stylesheet="~/workspace/web/css/rmarkdown.css",
+          options = c('toc', markdown::markdownHTMLOptions(TRUE)))
+```
+
+
+```{roptscensus, echo=FALSE}
+opts_chunk$set(echo=FALSE,eval=TRUE, cache=TRUE,message=FALSE,warning=FALSE,fig.width=14,fig.height=14)
+```
+
+
+# Age of the local population
+
+## Histogram
+
+```{rcenKarePersAge}
+raw <-  read.csv("data/DoBKarelia.csv", sep=";", skip=6)
+names(raw) <- c("measure","region","year","value")
+
+df <- raw
+n.row <-  nrow(df)
+df <- df[-n.row:-(n.row-2),]
+df$value <- as.numeric(df$value)
+df <- df[df$value > 0,]
+#df <- df[df$value != "Год рождения не указан",]
+
+df <- df[df$region != "Всего",]
+df$region <- factor(df$region)
+df$measure <- NULL
+
+df$year <- paste("x",df$year,sep="")
+
+
+library(reshape2)
+df.wide <- dcast(df, 
+                 region ~ year, 
+                 value.var = "value")
+
+df.wide <- df.wide[-102:-103]
+mat <- as.matrix(df.wide[,-1])
+matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
+
+dat <- as.data.frame(matnorm)
+df.w <- cbind(df.wide$region,dat)
+
+df.l <- melt(df.w, id.vars = "df.wide$region")
+library(stringr)
+df.l$variable <- as.character(df.l$variable)
+df.l$variable <- str_replace(df.l$variable, "x","")
+
+df.l$variable <- factor(df.l$variable)
+df.l$variable <- as.numeric(levels(df.l$variable))[df.l$variable]
+
+names(df.l) <- c("region","year","value")
+df.l$age <- 2002 - df.l$year
+
+library(RCurl)
+GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/karelia_key_rayon.csv")
+region_key_karelia <-  read.csv(text = GHurl)
+dat <- merge(df.l,region_key_karelia,
+                        by="region")
+
+```
+
+
+```{rcenKarePersAgePlot1}
+library(ggplot2)
+ggplot(dat, aes(x=age,y=value)) +
+  geom_bar(stat="identity",position="dodge") +
+  facet_wrap(~region, ncol=2) +
+   theme(axis.text.x = element_text(angle = 90))
+```
+
+## Plain choropleth map
+
+```{rcenKarePersAgeMap1}
+library(rgdal)
+shapefile <- readOGR(dsn = "/home/aurelius/workspace/data/shapefiles/russia/gadm/RUS_adm_simple/", 
+               layer = "RUS_adm2")
+
+shape_karelia <- shapefile[shapefile$NAME_1 == "Karelia", ]
+
+df.w$oldShare <- rowSums(df.w[2:41], na.rm=TRUE)
+dat <- df.w[,c("df.wide$region","oldShare")]
+names(dat) <- c("region","oldShare")
+
+df.map.karelia <- merge(dat,
+                        region_key_karelia,
+                        by="region")
+
+library(ggplot2)
+library(rgeos)
+shape_karelia$id <- rownames(shape_karelia@data)
+map.points <- fortify(shape_karelia, region = "id")
+map.df <- merge(map.points, shape_karelia, by = "id")
+
+choro <- merge(map.df,df.map.karelia,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+library(scales)
+ggplot(choro, aes(long,lat,group=group)) +
+  geom_polygon(aes(fill = oldShare)) +
+  geom_polygon(data = map.df, aes(long,lat), 
+               fill=NA, 
+               color = "white",
+               size=0.1) + # white borders
+  coord_map(project="orthographic")  +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people over 60 years (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
+
+```
+
+### Choropleth map on top of road map
+
+```{rcenKarePersAgeMap2}
+
+library(ggmap)
+library(scales)
+
+data <- fortify(shape_karelia)
+qmap("segezha", zoom = 6, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = oldShare), 
+              data = choro, colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people over 60 years (from census 2002)")  +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
+
+
+```
+
+
+# Education
+
+```{rcenKarePersEdu}
+raw <-  read.csv("data/eduKarelia.csv", sep=";", skip=6)
+names(raw) <- c("region","measure","educ","value")
+
+df <- raw
+n.row <-  nrow(df)
+df <- df[-n.row:-(n.row-2),]
+df$value <- as.numeric(df$value)
+df <- df[df$value > 0,]
+
+df <- df[df$region != "Всего",]
+df$region <- factor(df$region)
+df$measure <- NULL
+
+library(reshape2)
+df.wide <- dcast(df, 
+                 region ~ educ, 
+                 value.var = "value")
+
+mat <- as.matrix(df.wide[,-1])
+matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
+
+dat <- as.data.frame(matnorm)
+df.w <- cbind(df.wide$region,dat)
+
+df.l <- melt(df.w, id.vars = "df.wide$region")
+library(stringr)
+
+names(df.l) <- c("region","variable","value")
+
+df.l$variable <- as.character(df.l$variable)
+
+df.l$variableEn[df.l$variable %in% "Начальное общее (начальное)"] <-  "Initial total (initial)"
+df.l$variableEn[df.l$variable %in% "Не имеющие начального общего образования - не умеющие читать и писать (неграмотные)"] <-  "Not having a primary education - who can not read and write (illiterate)"
+df.l$variableEn[df.l$variable %in% "Не имеющие начального общего образования - умеющие читать и писать"] <-  "Not having a primary education - can read and write"
+df.l$variableEn[df.l$variable %in% "Неполное высшее профессиональное (незаконченное высшее) "] <-  "Part-time higher professional (incomplete higher education)"
+df.l$variableEn[df.l$variable %in% "Не указавшие образование"] <-  "Does not have education"
+df.l$variableEn[df.l$variable %in% "Основное общее (неполное среднее)"] <-  "Basic general (lower secondary)"
+df.l$variableEn[df.l$variable %in% "Послевузовское профессиональное"] <-  "Graduate Professional"
+df.l$variableEn[df.l$variable %in% "Среднее (полное) общее"] <-  "Secondary (complete)"
+df.l$variableEn[df.l$variable %in% "Среднее профессиональное (среднее специальное)"] <-  "Vocational (secondary special)"
+df.l$variableEn[df.l$variable %in% "Высшее профессиональное (высшее)"] <-  "Higher professional education (higher)"
+
+df.l$variableEn <- factor(df.l$variableEn, levels=c("Not having a primary education - who can not read and write (illiterate)",
+                                                    "Not having a primary education - can read and write",
+                                                    "Does not have education",
+                                                    "Initial total (initial)",
+                                                    "Basic general (lower secondary)",
+                                                    "Secondary (complete)",
+                                                    "Vocational (secondary special)",
+                                                    "Part-time higher professional (incomplete higher education)",
+                                                    "Higher professional education (higher)",
+                                                    "Graduate Professional"))
+
+dat <- merge(df.l,region_key_karelia,
+                        by="region")
+
+```
+
+
+```{rcenKarePersEduPlot1}
+library(ggplot2)
+ggplot(dat, aes(x=region,y=value,fill=variableEn)) +
+  geom_bar() +
+  coord_flip() + 
+  theme(legend.position = "top")  +
+  guides(fill = guide_legend(nrow = 3)) +
+  scale_fill_brewer(type="div", palette="Blues")
+
+```
+
+
+## Plain choropleth map - share of higher education ("Higher professional education (higher)","Graduate Professional")
+
+```{rcenKarePersEduMap1}
+library(rgdal)
+
+
+df.w$highShare <- rowSums(df.w[c(2,9)], na.rm=TRUE)
+dat <- df.w[,c("df.wide$region","highShare")]
+names(dat) <- c("region","highShare")
+
+df.map.karelia <- merge(dat,
+                        region_key_karelia,
+                        by="region")
+
+library(ggplot2)
+library(rgeos)
+shape_karelia$id <- rownames(shape_karelia@data)
+map.points <- fortify(shape_karelia, region = "id")
+map.df <- merge(map.points, shape_karelia, by = "id")
+
+choro <- merge(map.df,df.map.karelia,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+ggplot(choro, aes(long,lat,group=group)) +
+  geom_polygon(aes(fill = highShare)) +
+  geom_polygon(data = map.df, aes(long,lat), 
+               fill=NA, 
+               color = "white",
+               size=0.1) + # white borders
+  coord_map(project="orthographic")  +
+  scale_fill_gradient(low="red", high="green") +
+  labs(title="Share of people high education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
+
+```
+
+### Choropleth map on top of road map - share of higher education ("Higher professional education (higher)","Graduate Professional")
+
+```{rrcenNizPersEduMap2}
+library(ggmap)
+library(scales)
+
+data <- fortify(shape_karelia)
+qmap("segezha", zoom = 6, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = highShare), data = choro,
+ colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="red", high="green") +
+  labs(title="Share of people high education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
+
+```
+
+
+
+
