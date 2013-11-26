@@ -148,7 +148,6 @@ qmap("segezha", zoom = 6, maptype="roadmap") +
 # Employment
 
 ```{rcenKarePersEmpPlot1}
-
 load("data/mod/emplKarelia.RData")
 library(ggplot2)
 ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
@@ -163,7 +162,6 @@ ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
 
 
 ```{rcenKarePersEmpMap1}
-
 library(rgdal)
 library(plyr)
 cdata <- ddply(dat[dat$variableEn %in% "Employed",], 
