@@ -89,7 +89,7 @@ ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
   scale_fill_brewer(type="div", palette="Blues")
 ```
 
-# Low Education
+## Low Education
 
 Population share of individuals with one of the following level of education: 
 
@@ -130,7 +130,7 @@ ggplot(choro, aes(long,lat,group=group)) +
 
 ```
 
-```{rrcenNizPersEduMap2}
+```{rrcenKareliaPersEduMap2}
 library(ggmap)
 
 data <- fortify(shape_karelia)
@@ -145,5 +145,50 @@ qmap("segezha", zoom = 6, maptype="roadmap") +
 ```
 
 
+# Employment
+
+```{rcenKarePersEmpPlot1}
+
+load("data/mod/emplKarelia.RData")
+library(ggplot2)
+ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
+  geom_bar(stat="identity", position="stack") +
+  coord_flip() + 
+  theme(legend.position = "top")  +
+  guides(fill = guide_legend(nrow = 1)) +
+  scale_fill_brewer(type="div", palette="Blues")
+```
+
+## Employment rate
+
+
+```{rcenKarePersEmpMap1}
+
+library(rgdal)
+library(plyr)
+cdata <- ddply(dat[dat$variableEn %in% "Employed",], 
+               "region", summarise,
+               unEmpShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
+
+load("data/shape/karelia.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+library(ggmap)
+
+data <- fortify(shape_karelia)
+qmap("segezha", zoom = 6, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = unEmpShare), data = choro,
+ colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="red", high="green") +
+  labs(title="Share of employed (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
+
+```
 
 
