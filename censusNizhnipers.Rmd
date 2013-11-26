@@ -18,55 +18,29 @@ opts_chunk$set(echo=FALSE,eval=TRUE, cache=TRUE,message=FALSE,warning=FALSE,fig.
 ## Histogram
 
 
-
-
-```{rcenNizPersAgePlot1}
+```{rcenNizPersAgePlot1, fig.height=26}
 dat <- read.csv("data/mod/ageNizhni.csv")
-library(RCurl)
-GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
-region_key_nizhni <-  read.csv(text = GHurl)
-dat <- merge(dat,region_key_nizhni,
-                        by="region")
-
 library(ggplot2)
 ggplot(dat, aes(x=age,y=value)) +
   geom_bar(stat="identity",position="dodge") +
   facet_wrap(~region, ncol=2) +
    theme(axis.text.x = element_text(angle = 90))
-
-
 ```
 
-## Plain choropleth map
+## Share of people over 60 years
 
 ```{rcenNizPersAgeMap1}
-library(rgdal)
-#load("RUS_adm2.RData")
-shapefile <- readOGR(dsn = "/home/aurelius/workspace/data/shapefiles/russia/gadm/RUS_adm_simple/", 
-               layer = "RUS_adm2")
-
-shape_nizhni <- shapefile[shapefile$NAME_1 == "Nizhegorod", ]
-
-
 library(plyr)
-datOld <- dat[dat$age >= 60,]
-cdata <- ddply(datOld, "region", summarise,
+cdata <- ddply(dat[dat$age >= 60,], "region", summarise,
                oldShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
 
-df.map.nizhni <- merge(cdata,
-                        region_key_nizhni,
-                        by="region")
-
-library(ggplot2)
-library(rgeos)
-shape_nizhni$id <- rownames(shape_nizhni@data)
-map.points <- fortify(shape_nizhni, region = "id")
-map.df <- merge(map.points, shape_nizhni, by = "id")
-
-choro <- merge(map.df,df.map.nizhni,by="ID_2")
+load("data/shape/nizhni.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
 choro <- choro[order(choro$order), ]
 
-cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2.x, data=choro, mean)
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
 
 ggplot(choro, aes(long,lat,group=group)) +
   geom_polygon(aes(fill = oldShare)) +
@@ -77,16 +51,14 @@ ggplot(choro, aes(long,lat,group=group)) +
   coord_map(project="orthographic")  +
   scale_fill_gradient(low="green", high="red") +
   labs(title="Share of people over 60 years (from census 2002)") +
-  geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
 
 ```
 
-### Choropleth map on top of road map
 
 ```{rcenNizPersAgeMap2}
 
 library(ggmap)
-library(scales)
 
 data <- fortify(shape_nizhni)
 qmap("nizhni novgorod", zoom = 7, maptype="roadmap") +
@@ -94,199 +66,21 @@ qmap("nizhni novgorod", zoom = 7, maptype="roadmap") +
  colour = "white", alpha = .6, size = .3) +
   scale_fill_gradient(low="green", high="red") +
   labs(title="Share of people over 60 years (from census 2002)")  +
-  geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
 
 
 ```
-
-
-### Age in the villages
-
-```{rcenNizPersAgeVillage}
-raw <-  read.csv("data/DoBNizhniVillage.csv", sep=";", skip=6)
-names(raw) <- c("region","measure","year","value")
-
-raw$test <- paste(raw$region,raw$year,sep="_")
-raw$dup <- duplicated(raw$test)
-df <- raw[raw$dup == FALSE,]
-
-n.row <-  nrow(df)
-df <- df[-n.row:-(n.row-2),]
-df$value <- as.numeric(df$value)
-df <- df[df$value > 0,]
-#df <- df[df$value != "Год рождения не указан",]
-
-df <- df[df$region != "Всего",]
-df$region <- factor(df$region)
-df$measure <- NULL
-
-df$year <- paste("x",df$year,sep="")
-
-library(reshape2)
-df.wide <- dcast(df, 
-                 region ~ year, 
-                 value.var = "value")
-
-df.wide <- df.wide[-102:-103]
-mat <- as.matrix(df.wide[,-1])
-Rsum <- rowSums(mat, na.rm=TRUE, dims = 1)
-matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
-
-dat <- as.data.frame(matnorm)
-df.w <- cbind(df.wide$region,dat)
-
-df.l <- melt(df.w, id.vars = "df.wide$region")
-library(stringr)
-df.l$variable <- as.character(df.l$variable)
-df.l$variable <- str_replace(df.l$variable, "x","")
-
-df.l$variable <- factor(df.l$variable)
-df.l$variable <- as.numeric(levels(df.l$variable))[df.l$variable]
-
-names(df.l) <- c("region","year","value")
-df.l$age <- 2002 - df.l$year
-
-```
-
-
-
-```{rcenNizPersAgeVillageMap1}
-# library(stringr)
-# df.l$regionGeoCode <- str_replace(df.l$region, "й сельсовет", "")
-# 
-# library(ggmap)
-#  location <- unique(as.character(df.l$regionGeoCode))
-#  location <- location[!is.na(location)] # poistetaan NA sijainti
-#  code <- geocode(location, output = c("latlon", "latlona", "more", "all"), messaging = FALSE,
-#                  sensor = FALSE, override_limit = FALSE)
-#  spat.data <- cbind(location, code)
-# spat.data.nizhni <- spat.data
-# save(spat.data.nizhni, file="data/spat.data.nizhni.RData")
-
-load("data/spat.data.nizhni.RData")
-df.w$oldShare <- rowSums(df.w[2:41], na.rm=TRUE)
-dat <- df.w[,c("df.wide$region","oldShare")]
-dat <- cbind(dat,Rsum)
-names(dat) <- c("region","oldShare","pop")
-
-region.dat <- merge(dat,spat.data.nizhni,by.x="region",
-                   by.y="location")
-# remove the missing locations
-region.dat <- region.dat[!is.na(region.dat$lon), ]
-# remove wrong locations
-
-region.dat <- region.dat[region.dat$lon < 50, ]
-region.dat <- region.dat[region.dat$lon > 40, ]
-region.dat <- region.dat[region.dat$lat > 55, ]
-library(stringr)
-region.dat$region.short <- str_sub(region.dat$region, 1, 10)
-
-
-ggplot(choro, aes(long,lat,group=group)) +
-  #geom_polygon(aes(fill = value)) +
-  geom_polygon(data = map.df, aes(long,lat), 
-               fill=NA, 
-               color = "dim grey",
-               size=0.1) + # white borders
-  geom_point(data = region.dat, aes(lon,lat, color=oldShare, group=region, size=pop)) + 
-  geom_text(data = region.dat, aes(lon,lat, label=region.short, group=region), 
-            size=2) + 
-  coord_map(project="orthographic")
-
-```
-
-
-
-```{rcenNizPersAgeVillageMap2, fig.height=22, fig.width=22}
-qmap("nizhni novgorod", zoom = 7, maptype="roadmap") +
- geom_polygon(aes(x = long, y = lat, group = group, fill = oldShare), data = choro,
- colour = "white", alpha = .6, size = .3) +
-  scale_fill_gradient2(low=muted("blue"), high=muted("red"), midpoint=25) +
-  labs(title="Share of people over 60 years (from census 2002)")  +
-  geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey") +
-  geom_point(data = region.dat, aes(lon,lat,group=region), colour="grey10", size=6) +
-  geom_point(data = region.dat, aes(lon,lat, color=oldShare, group=region), size=5) + 
-  scale_color_gradient2(low=muted("blue"), high=muted("red"), midpoint=22) +
-  geom_text(data = region.dat, aes(lon,lat, label=region.short, group=region), 
-            size=3.5, vjust=2) +
-  geom_text(data = region.dat, aes(lon,lat, label=pop, group=region), 
-            size=3.5, vjust=-1, color="red")
-
-
-```
-
 
 
 # Education
 
-```{rcenNizPersEdu}
-raw <-  read.csv("data/eduNizhni.csv", sep=";", skip=6)
-names(raw) <- c("region","measure","educ","value")
-
-df <- raw
-n.row <-  nrow(df)
-df <- df[-n.row:-(n.row-2),]
-df$value <- as.numeric(df$value)
-df <- df[df$value > 0,]
-#df <- df[df$value != "Год рождения не указан",]
-
-df <- df[df$region != "Всего",]
-df$region <- factor(df$region)
-df$measure <- NULL
-
-library(reshape2)
-df.wide <- dcast(df, 
-                 region ~ educ, 
-                 value.var = "value")
-
-mat <- as.matrix(df.wide[,-1])
-matnorm <- mat/rowSums(mat, na.rm=TRUE)*100
-
-dat <- as.data.frame(matnorm)
-df.w <- cbind(df.wide$region,dat)
-
-df.l <- melt(df.w, id.vars = "df.wide$region")
-library(stringr)
-
-names(df.l) <- c("region","variable","value")
-
-df.l$variable <- as.character(df.l$variable)
-
-df.l$variableEn[df.l$variable %in% "Начальное общее (начальное)"] <-  "Initial total (initial)"
-df.l$variableEn[df.l$variable %in% "Не имеющие начального общего образования - не умеющие читать и писать (неграмотные)"] <-  "Not having a primary education - who can not read and write (illiterate)"
-df.l$variableEn[df.l$variable %in% "Не имеющие начального общего образования - умеющие читать и писать"] <-  "Not having a primary education - can read and write"
-df.l$variableEn[df.l$variable %in% "Неполное высшее профессиональное (незаконченное высшее) "] <-  "Part-time higher professional (incomplete higher education)"
-df.l$variableEn[df.l$variable %in% "Не указавшие образование"] <-  "Does not have education"
-df.l$variableEn[df.l$variable %in% "Основное общее (неполное среднее)"] <-  "Basic general (lower secondary)"
-df.l$variableEn[df.l$variable %in% "Послевузовское профессиональное"] <-  "Graduate Professional"
-df.l$variableEn[df.l$variable %in% "Среднее (полное) общее"] <-  "Secondary (complete)"
-df.l$variableEn[df.l$variable %in% "Среднее профессиональное (среднее специальное)"] <-  "Vocational (secondary special)"
-df.l$variableEn[df.l$variable %in% "Высшее профессиональное (высшее)"] <-  "Higher professional education (higher)"
-
-df.l$variableEn <- factor(df.l$variableEn, levels=c("Not having a primary education - who can not read and write (illiterate)",
-                                                    "Not having a primary education - can read and write",
-                                                    "Does not have education",
-                                                    "Initial total (initial)",
-                                                    "Basic general (lower secondary)",
-                                                    "Secondary (complete)",
-                                                    "Vocational (secondary special)",
-                                                    "Part-time higher professional (incomplete higher education)",
-                                                    "Higher professional education (higher)",
-                                                    "Graduate Professional"))
-
-library(RCurl)
-GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
-region_key_nizhni <-  read.csv(text = GHurl)
-dat <- merge(df.l,region_key_nizhni,
-                        by="region")
-
-```
-
 
 ```{rcenNizPersEduPlot1}
+load("data/mod/eduNizhni.RData")
+
 library(ggplot2)
-ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn)) +
-  geom_bar() +
+ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
+  geom_bar(stat="identity", position="stack") +
   coord_flip() + 
   theme(legend.position = "top")  +
   guides(fill = guide_legend(nrow = 3)) +
@@ -295,63 +89,57 @@ ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn)) +
 ```
 
 
-## Plain choropleth map - share of higher education ("Higher professional education (higher)","Graduate Professional")
+## Low education
+
+Population share of individuals with one of the following level of education: 
+
+- Not having a primary education - who can not read and write (illiterate)
+- Not having a primary education - can read and write
+- Does not have education
 
 ```{rcenNizPersEduMap1}
 library(rgdal)
+library(plyr)
+cdata <- ddply(dat[dat$variableEn %in% 
+                     c("Not having a primary education - who can not read and write (illiterate)",
+                       "Not having a primary education - can read and write",
+                       "Does not have education"),], 
+               "region", summarise,
+               lowShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
 
-
-df.w$highShare <- rowSums(df.w[c(2,9)], na.rm=TRUE)
-dat <- df.w[,c("df.wide$region","highShare")]
-names(dat) <- c("region","highShare")
-
-library(RCurl)
-GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
-region_key_nizhni <-  read.csv(text = GHurl)
-df.map.nizhni <- merge(dat,
-                        region_key_nizhni,
-                        by="region")
-
-library(ggplot2)
-library(rgeos)
-shape_nizhni$id <- rownames(shape_nizhni@data)
-map.points <- fortify(shape_nizhni, region = "id")
-map.df <- merge(map.points, shape_nizhni, by = "id")
-
-choro <- merge(map.df,df.map.nizhni,by="ID_2")
+load("data/shape/nizhni.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
 choro <- choro[order(choro$order), ]
 
-cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2.x, data=choro, mean)
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
 
 ggplot(choro, aes(long,lat,group=group)) +
-  geom_polygon(aes(fill = highShare)) +
+  geom_polygon(aes(fill = lowShare)) +
   geom_polygon(data = map.df, aes(long,lat), 
                fill=NA, 
                color = "white",
                size=0.1) + # white borders
   coord_map(project="orthographic")  +
-  scale_fill_gradient2(low=muted("red"), high=muted("blue"), midpoint=10) +
-  labs(title="Share of people high education (from census 2002)") +
-  geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people no education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
 
 ```
 
-### Choropleth map on top of road map - share of higher education ("Higher professional education (higher)","Graduate Professional")
 
 ```{rrcenNizPersEduMap2}
-
 library(ggmap)
-library(scales)
-
 data <- fortify(shape_nizhni)
 qmap("nizhni novgorod", zoom = 7, maptype="roadmap") +
- geom_polygon(aes(x = long, y = lat, group = group, fill = highShare), data = choro,
+ geom_polygon(aes(x = long, y = lat, group = group, fill = lowShare), data = choro,
  colour = "white", alpha = .6, size = .3) +
-  scale_fill_gradient2(low=muted("red"), high=muted("blue"), midpoint=10) +
-  labs(title="Share of people high education (from census 2002)") +
-  geom_text(data=cnames, aes(long, lat, label = NAME_2.x, group=NAME_2.x), size=3, color="dim grey")
-
-
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people no education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
 ```
 
 
