@@ -148,7 +148,9 @@ qmap("segezha", zoom = 6, maptype="roadmap") +
 # Employment
 
 ```{rcenKarePersEmpPlot1}
+
 load("data/mod/emplKarelia.RData")
+
 library(ggplot2)
 ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
   geom_bar(stat="identity", position="stack") +
@@ -156,17 +158,20 @@ ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
   theme(legend.position = "top")  +
   guides(fill = guide_legend(nrow = 1)) +
   scale_fill_brewer(type="div", palette="Blues")
+
 ```
 
 ## Employment rate
 
 
 ```{rcenKarePersEmpMap1}
+
+
 library(rgdal)
 library(plyr)
 cdata <- ddply(dat[dat$variableEn %in% "Employed",], 
                "region", summarise,
-               unEmpShare  = sum(value, na.rm=TRUE))
+               EmpShare  = sum(value, na.rm=TRUE))
 plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
                  by="region",all.x=TRUE)
 
@@ -180,7 +185,7 @@ library(ggmap)
 
 data <- fortify(shape_karelia)
 qmap("segezha", zoom = 6, maptype="roadmap") +
- geom_polygon(aes(x = long, y = lat, group = group, fill = unEmpShare), data = choro,
+ geom_polygon(aes(x = long, y = lat, group = group, fill = EmpShare), data = choro,
  colour = "white", alpha = .6, size = .3) +
   scale_fill_gradient(low="red", high="green") +
   labs(title="Share of employed (from census 2002)") +
