@@ -12,7 +12,10 @@ df <- raw
 raw <-  read.csv("data/raw/DoBMoscowOb.csv", sep=";", skip=6)
 names(raw) <- c("region","year","measure","value")
 df <- raw
-
+## Krasnodar
+raw <-  read.csv("data/raw/DoBKrasnodar.csv", sep=",", skip=6)
+names(raw) <- c("measure","year","region","value")
+df <- raw
 
 n.row <-  nrow(df)
 df <- df[-n.row:-(n.row-2),]
@@ -50,6 +53,7 @@ names(df.l) <- c("region","year","value")
 df.l$age <- 2002 - df.l$year
 
 ## Karelia
+library(RCurl)
 GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/karelia_key_rayon.csv")
 region_key_karelia <-  read.csv(text = GHurl)
 dat <- merge(df.l,region_key_karelia,
@@ -57,6 +61,7 @@ dat <- merge(df.l,region_key_karelia,
 write.csv(dat, file="data/mod/ageKarelia.csv")
 
 ## Nizhni
+library(RCurl)
 GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/nizhni_key_rayon.csv")
 region_key_nizhni <-  read.csv(text = GHurl)
 dat <- merge(df.l,region_key_nizhni,
@@ -64,11 +69,19 @@ dat <- merge(df.l,region_key_nizhni,
 write.csv(dat, file="data/mod/ageNizhni.csv")
 
 ## Moscow Oblast
+library(RCurl)
 GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/moscowoblast_key_rayon.csv")
 region_key_moscowOb <-  read.csv(text = GHurl)
 dat <- merge(df.l,region_key_moscowOb,
              by="region")
 write.csv(dat, file="data/mod/ageMoscowOb.csv")
 
+## Krasnodar Krai
+library(RCurl)
+GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/krasnodar_key_rayon.csv")
+region_key_krasnodar <-  read.csv(text = GHurl)
+dat <- merge(df.l,region_key_krasnodar,
+             by="region")
+write.csv(dat, file="data/mod/ageKrasnodar.csv")
 
 

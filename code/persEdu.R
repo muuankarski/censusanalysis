@@ -12,6 +12,11 @@ df <- raw
 raw <-  read.csv("data/raw/eduMoscowOb.csv", sep=",", skip=6)
 names(raw) <- c("region","measure","educ","value")
 df <- raw
+## Krasnodar
+raw <-  read.csv("data/raw/eduKrasnodar.csv", sep=",", skip=6)
+names(raw) <- c("measure","educ","region","value")
+df <- raw
+
 
 #######################
 
@@ -87,5 +92,11 @@ dat <- merge(df.l,region_key_moscowOb,
              by="region")
 save(dat, file="data/mod/eduMoscowOb.RData")
 
-
+## Krasnodar Krai
+library(RCurl)
+GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/krasnodar_key_rayon.csv")
+region_key_krasnodar <-  read.csv(text = GHurl)
+dat <- merge(df.l,region_key_krasnodar,
+             by="region")
+save(dat, file="data/mod/eduKrasnodar.RData")
 

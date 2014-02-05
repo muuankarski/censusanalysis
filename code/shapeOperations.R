@@ -8,6 +8,7 @@ shapefile <- readOGR(dsn = "/home/aurelius/workspace/data/shapefiles/russia/gadm
 shape_karelia <- shapefile[shapefile$NAME_1 == "Karelia", ]
 shape_moscow <- shapefile[shapefile$NAME_1 == "Moskva", ]
 shape_nizhni <- shapefile[shapefile$NAME_1 == "Nizhegorod", ]
+shape_krasnodar <- shapefile[shapefile$NAME_1 == "Krasnodar", ]
 
 ## Karelia
 shape_karelia$id <- rownames(shape_karelia@data)
@@ -26,3 +27,9 @@ shape_moscow$id <- rownames(shape_moscow@data)
 map.points <- fortify(shape_moscow, region = "id")
 map.df <- merge(map.points, shape_moscow, by = "id")
 save(map.df, file="data/shape/moscowOb.RData")
+
+## Krasnodar
+shape_krasnodar$id <- rownames(shape_krasnodar@data)
+map.points <- fortify(shape_krasnodar, region = "id")
+map.df <- merge(map.points, shape_krasnodar, by = "id")
+save(map.df, file="data/shape/krasnodar.RData")

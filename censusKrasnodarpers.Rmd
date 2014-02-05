@@ -1,0 +1,189 @@
+<h1 class="title">Census 2002 & Krasnodar & Personal</h1>
+
+```{r, eval=FALSE, echo=FALSE}
+library(knitr)
+library(markdown)
+knit2html('censusKrasnodarpers.Rmd', 
+          stylesheet="~/workspace/web/css/rmarkdown.css",
+          options = c('toc', markdown::markdownHTMLOptions(TRUE)))
+```
+
+
+```{roptscensus, echo=FALSE}
+opts_chunk$set(echo=FALSE,eval=TRUE, cache=TRUE,message=FALSE,warning=FALSE,fig.width=14,fig.height=14)
+```
+
+# Age of the local population
+
+## Histogram
+
+
+```{rcenKrasdPersAgePlot1, fig.height=26}
+dat <- read.csv("data/mod/ageKrasnodar.csv")
+library(ggplot2)
+ggplot(dat, aes(x=age,y=value)) +
+  geom_bar(stat="identity",position="dodge") +
+  facet_wrap(~region, ncol=2) +
+   theme(axis.text.x = element_text(angle = 90))
+```
+
+## Share of people over 60 years
+
+```{rcenKrasdPersAgeMap1}
+library(plyr)
+cdata <- ddply(dat[dat$age >= 60,], "region", summarise,
+               oldShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
+
+load("data/shape/krasnodar.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+ggplot(choro, aes(long,lat,group=group)) +
+  geom_polygon(aes(fill = oldShare)) +
+  geom_polygon(data = map.df, aes(long,lat), 
+               fill=NA, 
+               color = "white",
+               size=0.1) + # white borders
+  coord_map(project="orthographic")  +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people over 60 years (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
+
+```
+
+
+```{rcenKrasdPersAgeMap2}
+
+library(ggmap)
+
+data <- fortify(shape_krasnodar)
+qmap("Krasnodar", zoom = 7, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = oldShare), data = choro,
+ colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people over 60 years (from census 2002)")  +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), size=3, color="dim grey")
+
+```
+
+
+# Education
+
+
+```{rcenKrasdPersEduPlot1}
+load("data/mod/eduKrasnodar.RData")
+
+library(ggplot2)
+ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
+  geom_bar(stat="identity", position="stack") +
+  coord_flip() + 
+  theme(legend.position = "top")  +
+  guides(fill = guide_legend(nrow = 3)) +
+  scale_fill_brewer(type="div", palette="Blues")
+
+```
+
+
+## Low education
+
+Population share of individuals with one of the following level of education: 
+
+- Not having a primary education - who can not read and write (illiterate)
+- Not having a primary education - can read and write
+- Does not have education
+
+```{rcenKrasdPersEduMap1}
+library(rgdal)
+library(plyr)
+cdata <- ddply(dat[dat$variableEn %in% 
+                     c("Not having a primary education - who can not read and write (illiterate)",
+                       "Not having a primary education - can read and write",
+                       "Does not have education"),], 
+               "region", summarise,
+               lowShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
+
+load("data/shape/krasnodar.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+ggplot(choro, aes(long,lat,group=group)) +
+  geom_polygon(aes(fill = lowShare)) +
+  geom_polygon(data = map.df, aes(long,lat), 
+               fill=NA, 
+               color = "white",
+               size=0.1) + # white borders
+  coord_map(project="orthographic")  +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people no education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
+
+```
+
+
+```{rrcenKrasdPersEduMap2}
+library(ggmap)
+data <- fortify(shape_krasnodar)
+qmap("krasnodar novgorod", zoom = 7, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = lowShare), data = choro,
+ colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="green", high="red") +
+  labs(title="Share of people no education (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
+```
+
+
+# Employment
+
+```{rcenkrasnodarPersEmpPlot1, fig.height=24}
+load("data/mod/emplKrasnodar.RData")
+
+library(ggplot2)
+ggplot(dat, aes(x=NAME_2,y=value,fill=variableEn,order=variableEn)) +
+  geom_bar(stat="identity", position="stack") +
+  coord_flip() + 
+  theme(legend.position = "top")  +
+  guides(fill = guide_legend(nrow = 1)) +
+  scale_fill_brewer(type="div", palette="Blues")
+```
+
+## Employment rate
+
+
+```{rcenMosObPersEmpMap1}
+
+library(rgdal)
+library(plyr)
+cdata <- ddply(dat[dat$variableEn %in% "Employed",], 
+               "region", summarise,
+               EmpShare  = sum(value, na.rm=TRUE))
+plotDat <- merge(cdata,unique(dat[,c("region","ID_2")]),
+                 by="region",all.x=TRUE)
+
+load("data/shape/krasnodar.RData")
+choro <- merge(map.df,plotDat,by="ID_2")
+choro <- choro[order(choro$order), ]
+
+cnames <- stats:::aggregate.formula(cbind(long, lat) ~ NAME_2, data=choro, mean)
+
+library(ggmap)
+data <- fortify(shape_krasnodar)
+qmap("krasnodar novgorod", zoom = 7, maptype="roadmap") +
+ geom_polygon(aes(x = long, y = lat, group = group, fill = EmpShare), data = choro,
+ colour = "white", alpha = .6, size = .3) +
+  scale_fill_gradient(low="red", high="green") +
+  labs(title="Share of unemployed (from census 2002)") +
+  geom_text(data=cnames, aes(long, lat, label = NAME_2, group=NAME_2), 
+            size=3, color="dim grey")
+
+```
+
