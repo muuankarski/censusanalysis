@@ -7,6 +7,12 @@ names(raw) <- c("region","measure","material","value")
 raw <-  read.csv("data/raw/housematerial_krasnodar.csv", sep=",", skip=6)
 names(raw) <- c("measure","material","region","value")
 
+# Karelia
+raw <-  read.csv("data/raw/housematerial_karelia.csv", sep=";", skip=6)
+names(raw) <- c("region","measure","material","value")
+
+
+
 # Sochi
 raw <-  read.csv("data/raw/housematerial_sochi.csv", sep=",", skip=6)
 names(raw) <- c("measure","material","region","value")
@@ -66,6 +72,14 @@ region_key_nizhni <-  read.csv(text = GHurl)
 dat <- merge(df.long,region_key_nizhni,
              by="region")
 save(dat, file="data/mod/houseMatNizhni.RData")
+
+## Nizhni
+library(RCurl)
+GHurl <- getURL("https://raw.github.com/muuankarski/data/master/russia/karelia_key_rayon.csv")
+region_key_karelia <-  read.csv(text = GHurl)
+dat <- merge(df.long,region_key_karelia,
+             by="region")
+save(dat, file="data/mod/houseMatKarelia.RData")
 
 ## Krasnodar Krai
 library(RCurl)
